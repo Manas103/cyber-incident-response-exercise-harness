@@ -1,0 +1,26 @@
+body {
+  font-family: system-ui, sans-serif;
+  margin: 0;
+  padding: 1.5rem;
+  background: #0f1420;
+  color: #e6e9f0;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin-bottom: 1.5rem;
+}
+
+th, td {
+  border: 1px solid #2a3244;
+  padding: 0.4rem 0.6rem;
+  text-align: left;
+  font-size: 0.9rem;
+}
+
+.status-exercised { color: #4ade80; }
+.status-not_exercised { color: #f87171; }
+.deviation-missing_step { color: #fbbf24; }
+.deviation-wrong_step { color: #f87171; }
+.deviation-out_of_order { color: #60a5fa; }

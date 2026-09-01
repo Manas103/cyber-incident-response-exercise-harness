@@ -1,0 +1,11 @@
+total named playbook steps: 24
+
+--- refusal path: one step deliberately left without evidence ---
+withheld step: ransomware_corporate_it.detect
+withheld step status: not_exercised (step was performed but has no linked evidence artifact)
+exercised: 23/24
+
+--- success path: every step evidenced ---
+exercised: 24/24
+
+evidence_gate_refusal: true (refuses without evidence, confirms with evidence)

@@ -1,0 +1,55 @@
+============================= test session starts =============================
+platform win32 -- Python 3.12.10, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\Manas\Downloads\Total Job Application process flow\projects\cyber-incident-response-exercise-harness\backend\venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\Manas\Downloads\Total Job Application process flow\projects\cyber-incident-response-exercise-harness\backend
+configfile: pytest.ini
+testpaths: tests
+plugins: anyio-4.14.2
+collecting ... collected 38 items
+
+tests/test_after_action.py::test_success_path_marks_all_twenty_four_steps_exercised_when_all_are_evidenced PASSED [  2%]
+tests/test_after_action.py::test_refusal_path_never_marks_a_step_exercised_without_evidence PASSED [  5%]
+tests/test_after_action.py::test_a_step_never_performed_at_all_is_not_exercised_regardless_of_evidence PASSED [  7%]
+tests/test_after_action.py::test_report_covers_exactly_the_twenty_four_named_playbook_steps PASSED [ 10%]
+tests/test_api.py::test_list_scenarios_returns_all_six_with_four_steps_and_five_injects_each PASSED [ 13%]
+tests/test_api.py::test_list_injects_returns_all_thirty PASSED           [ 15%]
+tests/test_api.py::test_list_runs_returns_the_six_seeded_official_runs PASSED [ 18%]
+tests/test_api.py::test_get_run_detail_reports_clean_timing_and_no_deviations PASSED [ 21%]
+tests/test_api.py::test_get_missing_run_is_404 PASSED                    [ 23%]
+tests/test_api.py::test_after_action_report_is_fully_exercised_from_the_seeded_demo_data PASSED [ 26%]
+tests/test_detector.py::test_clean_run_has_no_deviations PASSED          [ 28%]
+tests/test_detector.py::test_missing_step_is_flagged_by_name PASSED      [ 31%]
+tests/test_detector.py::test_wrong_step_extra_action_is_flagged_by_name PASSED [ 34%]
+tests/test_detector.py::test_unrecognized_action_with_no_step_id_is_flagged_as_wrong_step PASSED [ 36%]
+tests/test_detector.py::test_out_of_order_is_flagged_naming_the_step_that_jumped_early PASSED [ 39%]
+tests/test_detector.py::test_every_deviation_names_a_real_inject_and_step_that_exist PASSED [ 42%]
+tests/test_injects.py::test_exactly_thirty_injects_total PASSED          [ 44%]
+tests/test_injects.py::test_exactly_five_injects_per_scenario PASSED     [ 47%]
+tests/test_injects.py::test_inject_ids_are_unique PASSED                 [ 50%]
+tests/test_injects.py::test_injects_are_ordered_by_increasing_timestamp_within_a_scenario PASSED [ 52%]
+tests/test_injects.py::test_every_inject_references_a_real_scenario PASSED [ 55%]
+tests/test_invariants.py::test_every_flagged_deviation_names_a_real_inject_and_step_across_all_seeded_runs PASSED [ 57%]
+tests/test_invariants.py::test_timing_is_never_negative_and_never_references_a_nonexistent_action_across_all_runs PASSED [ 60%]
+tests/test_invariants.py::test_forty_of_forty_seeded_deviations_are_flagged_by_name PASSED [ 63%]
+tests/test_invariants.py::test_zero_false_flags_over_forty_clean_runs PASSED [ 65%]
+tests/test_postgres_fallback.py::test_schema_stands_up_against_real_postgres SKIPPED [ 68%]
+tests/test_postgres_fallback.py::test_default_database_url_is_sqlite_when_no_postgres_url_is_configured PASSED [ 71%]
+tests/test_reference_oracle_diff.py::test_primary_and_reference_agree_exactly_on_every_seeded_and_clean_run PASSED [ 73%]
+tests/test_reference_oracle_diff.py::test_reference_oracle_is_not_a_renamed_copy PASSED [ 76%]
+tests/test_scenarios.py::test_exactly_six_scenarios PASSED               [ 78%]
+tests/test_scenarios.py::test_each_scenario_has_exactly_four_steps_one_per_phase PASSED [ 81%]
+tests/test_scenarios.py::test_exactly_twenty_four_named_playbook_steps_total PASSED [ 84%]
+tests/test_scenarios.py::test_every_step_has_a_nonempty_name PASSED      [ 86%]
+tests/test_scenarios.py::test_step_order_index_matches_phase_position PASSED [ 89%]
+tests/test_timing.py::test_time_to_detect_and_contain_are_measured_relative_to_the_inject PASSED [ 92%]
+tests/test_timing.py::test_timing_is_none_when_the_matching_action_never_happened PASSED [ 94%]
+tests/test_timing.py::test_timing_uses_the_earliest_matching_action_not_the_last PASSED [ 97%]
+tests/test_timing.py::test_timing_never_references_an_action_from_a_different_scenario PASSED [100%]
+
+============================== warnings summary ===============================
+venv\Lib\site-packages\fastapi\testclient.py:1
+  C:\Users\Manas\Downloads\Total Job Application process flow\projects\cyber-incident-response-exercise-harness\backend\venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+================== 37 passed, 1 skipped, 1 warning in 0.73s ===================

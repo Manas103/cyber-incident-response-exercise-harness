@@ -1,0 +1,45 @@
+seeded-deviation fixture: 40 runs, each with exactly one seeded deviation
+  seeded.000     expected=missing_step   step=ransomware_corporate_it.detect                flagged=1 matched=1 -> OK
+  seeded.001     expected=wrong_step     step=phishing_credential_compromise.contain        flagged=1 matched=1 -> OK
+  seeded.002     expected=out_of_order   step=ransomware_corporate_it.recover               flagged=1 matched=1 -> OK
+  seeded.003     expected=missing_step   step=ransomware_corporate_it.recover               flagged=1 matched=1 -> OK
+  seeded.004     expected=wrong_step     step=insider_data_exfiltration.detect              flagged=1 matched=1 -> OK
+  seeded.005     expected=out_of_order   step=phishing_credential_compromise.recover        flagged=1 matched=1 -> OK
+  seeded.006     expected=missing_step   step=phishing_credential_compromise.eradicate      flagged=1 matched=1 -> OK
+  seeded.007     expected=wrong_step     step=ot_scada_intrusion.recover                    flagged=1 matched=1 -> OK
+  seeded.008     expected=out_of_order   step=phishing_credential_compromise.recover        flagged=1 matched=1 -> OK
+  seeded.009     expected=missing_step   step=phishing_credential_compromise.contain        flagged=1 matched=1 -> OK
+  seeded.010     expected=wrong_step     step=ransomware_corporate_it.eradicate             flagged=1 matched=1 -> OK
+  seeded.011     expected=out_of_order   step=insider_data_exfiltration.recover             flagged=1 matched=1 -> OK
+  seeded.012     expected=missing_step   step=insider_data_exfiltration.detect              flagged=1 matched=1 -> OK
+  seeded.013     expected=wrong_step     step=phishing_credential_compromise.contain        flagged=1 matched=1 -> OK
+  seeded.014     expected=out_of_order   step=insider_data_exfiltration.recover             flagged=1 matched=1 -> OK
+  seeded.015     expected=missing_step   step=ddos_customer_portal.recover                  flagged=1 matched=1 -> OK
+  seeded.016     expected=wrong_step     step=ot_scada_intrusion.detect                     flagged=1 matched=1 -> OK
+  seeded.017     expected=out_of_order   step=ddos_customer_portal.recover                  flagged=1 matched=1 -> OK
+  seeded.018     expected=missing_step   step=ddos_customer_portal.eradicate                flagged=1 matched=1 -> OK
+  seeded.019     expected=wrong_step     step=vendor_compromise.recover                     flagged=1 matched=1 -> OK
+  seeded.020     expected=out_of_order   step=ot_scada_intrusion.recover                    flagged=1 matched=1 -> OK
+  seeded.021     expected=missing_step   step=ot_scada_intrusion.contain                    flagged=1 matched=1 -> OK
+  seeded.022     expected=wrong_step     step=phishing_credential_compromise.eradicate      flagged=1 matched=1 -> OK
+  seeded.023     expected=out_of_order   step=ot_scada_intrusion.recover                    flagged=1 matched=1 -> OK
+  seeded.024     expected=missing_step   step=ot_scada_intrusion.detect                     flagged=1 matched=1 -> OK
+  seeded.025     expected=wrong_step     step=ddos_customer_portal.contain                  flagged=1 matched=1 -> OK
+  seeded.026     expected=out_of_order   step=vendor_compromise.recover                     flagged=1 matched=1 -> OK
+  seeded.027     expected=missing_step   step=vendor_compromise.recover                     flagged=1 matched=1 -> OK
+  seeded.028     expected=wrong_step     step=ot_scada_intrusion.detect                     flagged=1 matched=1 -> OK
+  seeded.029     expected=out_of_order   step=vendor_compromise.recover                     flagged=1 matched=1 -> OK
+  seeded.030     expected=missing_step   step=ransomware_corporate_it.eradicate             flagged=1 matched=1 -> OK
+  seeded.031     expected=wrong_step     step=phishing_credential_compromise.recover        flagged=1 matched=1 -> OK
+  seeded.032     expected=out_of_order   step=ransomware_corporate_it.recover               flagged=1 matched=1 -> OK
+  seeded.033     expected=missing_step   step=ransomware_corporate_it.contain               flagged=1 matched=1 -> OK
+  seeded.034     expected=wrong_step     step=insider_data_exfiltration.eradicate           flagged=1 matched=1 -> OK
+  seeded.035     expected=out_of_order   step=phishing_credential_compromise.recover        flagged=1 matched=1 -> OK
+  seeded.036     expected=missing_step   step=phishing_credential_compromise.detect         flagged=1 matched=1 -> OK
+  seeded.037     expected=wrong_step     step=ot_scada_intrusion.contain                    flagged=1 matched=1 -> OK
+  seeded.038     expected=out_of_order   step=phishing_credential_compromise.recover        flagged=1 matched=1 -> OK
+  seeded.039     expected=missing_step   step=phishing_credential_compromise.recover        flagged=1 matched=1 -> OK
+
+seeded_deviation_recall: 40/40
+false_flag_rate: 0 false flags over 40 clean runs
+reference_oracle_mismatches: 0/80
