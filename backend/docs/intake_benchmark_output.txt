@@ -1,0 +1,14 @@
+--- claim: 3 incoming report channels normalized onto one incident record ---
+seeded cases: 100
+cases where all 3 channels normalized to identical (data_sensitivity, scope, actively_exploited): 100 / 100
+mismatches: 0
+
+--- claim: severity classified against a written matrix checked by an independent oracle ---
+seeded cases: 500
+primary matched independent reference oracle: 500 / 500
+
+--- claim: every customer notification held behind a named human approval ---
+seeded cases: 100 (50 without approval, 50 with named approval)
+correct gate decision: 100 / 100
+false sends (sent without approval): 0
+false holds (approved but not sent): 0

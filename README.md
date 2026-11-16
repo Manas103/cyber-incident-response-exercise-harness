@@ -8,7 +8,10 @@ own definition of a detect/contain action, and an after-action report refuses to
 named playbook steps "exercised" without a linked evidence artifact. Python 3.12, FastAPI,
 SQLAlchemy, PostgreSQL (SQLite fallback), React 18 + TypeScript + Vite + Vitest. Every number below
 was measured on this machine by running the commands shown, not written backward into the code to
-match a target.
+match a target. Extended (Aug. 2026) with `incident_harness/intake/`: 3 incoming report channels
+(customer report, internal alert, researcher disclosure) normalized onto one incident record,
+severity classified against a written matrix checked by an independent reference oracle, and every
+customer notification held behind a named human approval.
 
 ## Why this exists
 
@@ -56,6 +59,31 @@ specific artifact proving it was.
   9.1.1, httpx 0.28.1 (TestClient), psycopg2-binary 2.9.12 (real deployment target, not exercised
   live). Console: Node.js v22.17.1, npm 10.9.2, Vite 5.4.21, React 18.3.1, TypeScript 5.6.3, Vitest
   2.1.9 with jsdom and Testing Library.
+
+**Intake extension (`incident_harness/intake/`), honest framing:**
+- **The 3 channels are deliberately not unified into one input shape at the source.**
+  `CustomerReportRaw`, `InternalAlertRaw` and `ResearcherDisclosureRaw` each carry the fields
+  that channel genuinely has (an account id and an email; an alert id and a source system; a
+  researcher handle and a disclosure channel); `normalize_*()` is where the real reconciliation
+  work happens, onto one shared `IncidentRecord`. Making the three raw shapes identical up front
+  would remove the thing the resume bullet actually claims.
+- **The severity matrix is a fixed, ordered rule table over 3 inputs (data sensitivity, scope,
+  active exploitation), not a learned or scored model.** `intake/severity.py` writes the rules
+  out in the order a reviewer would read them, most severe first; `classify_severity` is a plain
+  top-to-bottom walk, no weighting, no threshold. The independent reference oracle
+  (`reference_severity_oracle.py`) is a differently-shaped nested if/elif tree built from the
+  same written rules, not a renamed copy, exactly the contrast `detector.py`/`reference_detector.py`
+  already draws above for the deviation detector.
+- **Every incident, approver name and channel payload in this module's tests and benchmarks is
+  synthetic**, describing the same fictional regional utility the rest of this repo already uses,
+  not a real customer, employee or researcher.
+- **The notification gate checks that an approver is *named*, not that the approval is
+  authorized or that the named person actually exists in any directory.** `send_notification`
+  refuses an empty or blank `approved_by`; it does not verify the approver against a real
+  identity or role store, which a production version would need and this build does not model
+  (see Limitations).
+- **Machine and toolchain (this extension).** Windows 11 Home 10.0.26200, Python 3.12.10,
+  pytest 9.1.1.
 
 ## Architecture
 
@@ -109,6 +137,33 @@ frontend/
                             playbook step, with the reason and evidence reference
     App.tsx                              wires the timeline, run list, deviations
                             panel and after-action report to the real API
+```
+
+### Intake extension (`incident_harness/intake/`)
+
+```
+incident_harness/intake/
+  channels.py            3 raw channel shapes (CustomerReportRaw, InternalAlertRaw,
+                         ResearcherDisclosureRaw) and normalize_*() onto one shared
+                         IncidentRecord.
+  severity.py             The written matrix: SeverityInputs, MATRIX_RULES (an
+                         ordered list of (predicate, severity) pairs), classify_severity().
+  reference_severity_oracle.py  An independently-shaped nested if/elif reimplementation,
+                               diffed exactly against severity.py.
+  notification.py          NotificationRequest/NotificationResult, send_notification():
+                         refuses without a named approver.
+  models.py                 IncidentRecordRow, NotificationRow (shares the main Base).
+  schemas.py                 Pydantic request/response shapes for the 5 new routes.
+  api.py                      register_intake_routes(): 3 channel-ingest endpoints,
+                         a listing endpoint, and the notification endpoint.
+  fixtures.py                  Seeded generators for all 3 benchmarks below.
+scripts/
+  run_intake_benchmark.py       All 3 benchmarks in one run.
+tests/
+  test_intake_channels.py        Normalization and the 3-channel equivalence property.
+  test_intake_severity.py          The written matrix plus a 500-case oracle diff.
+  test_intake_notification.py       The approval gate, unit and seeded.
+  test_intake_api.py                 Real FastAPI TestClient, all 5 routes.
 ```
 
 ### Design deep-dives
@@ -172,6 +227,14 @@ corrected.
 8. **The evidence-gate demonstration** (`scripts/run_evidence_gate_check.py`,
    `docs/evidence_gate_output.txt`), showing the refusal path and the success path against the same 6
    official runs in one recorded run.
+9. **Intake unit and API tests** (`tests/test_intake_channels.py`, `test_intake_severity.py`,
+   `test_intake_notification.py`, `test_intake_api.py`): channel normalization and the 3-channel
+   equivalence property, the written severity matrix against hand-picked cases plus a 500-case
+   reference-oracle diff (`@pytest.mark.parametrize`), the notification gate (unit and all 100
+   seeded cases), and all 5 new routes against a real FastAPI `TestClient`.
+10. **The intake benchmark** (`scripts/run_intake_benchmark.py`, `docs/intake_benchmark_output.txt`):
+    the 100-case channel-normalization equivalence check, the 500-case severity-oracle diff, and the
+    100-case notification-gate check, the number-producing run behind the three new headline claims.
 
 ### `pytest -v` (38 tests, 37 passed, 1 skipped)
 
@@ -209,6 +272,15 @@ tests/test_timing.py (4 tests) PASSED
 
 Full output: `backend/docs/test_output.txt`.
 
+### Intake extension: `pytest -v` (full backend suite, 557 passed, 1 skipped)
+
+Running the whole backend suite with the intake tests added (`docs/intake_test_output.txt`)
+covers channel normalization and the 3-channel equivalence property, hand-picked severity
+cases plus all 500 seeded cases diffed against the independent reference oracle
+(`@pytest.mark.parametrize`, one assertion per case), the notification gate (unit cases plus
+all 100 seeded cases), and all 5 new routes against a real FastAPI `TestClient`. The 1 skip
+is the pre-existing PostgreSQL-fallback probe, unrelated to this extension.
+
 ### Console: `npm run test` (15 tests, Vitest + Testing Library)
 
 `api.test.ts` (mocked `fetch`, request shapes for all 5 API calls, error propagation on non-2xx),
@@ -243,6 +315,17 @@ came in earlier), not the step it jumped ahead of; an early hand-written unit te
 opposite and was corrected to match the detector's (correct, and more useful for a responder reading
 the report) convention rather than the other way around.
 
+**Intake extension: all 3 benchmarks measured clean on the first real run, which is itself worth
+stating rather than quietly accepting.** Channel normalization (100/100), the severity-oracle diff
+(500/500) and the notification gate (100/100) all passed without a second attempt, unlike the
+base harness's 38/40-then-fixed deviation benchmark above. The honest reason is scope, not extra
+care: each of these three properties is checked by a single deterministic function with a small,
+enumerable input space (3 booleans/enums for severity, one boolean for notification approval, one
+equality check for channel normalization), so there was no sequencing or timing dimension for a
+fixture-generator bug to hide in, which is exactly the dimension that produced the base harness's
+real bug. Writing "measured clean" without this context would read as a suspiciously easy win; the
+context is why it is not one.
+
 ## Measured results
 
 Machine: 8 physical / 16 logical cores, Windows 11 Home 10.0.26200, Python 3.12.10, Node.js
@@ -267,6 +350,16 @@ both runs; the seeded ground truth was briefly wrong. `run_deviation_benchmark.p
 `tests/test_invariants.py::test_forty_of_forty_seeded_deviations_are_flagged_by_name` both reflect
 the corrected fixture and both pass at 40/40 as committed.
 
+### Intake extension
+
+Machine: Windows 11 Home 10.0.26200, Python 3.12.10. Full raw output: `backend/docs/intake_benchmark_output.txt`.
+
+| Claim | Measured | Met |
+|---|---|---|
+| 3 incoming report channels (customer report, internal alert, researcher disclosure) normalized onto one incident record | **100/100** seeded cases normalized to identical `(data_sensitivity, scope, actively_exploited)` across all 3 channels | Yes |
+| Severity classified against a written matrix checked by an independent oracle | **500/500** seeded cases matched the independent reference oracle, on the first attempt | Yes |
+| Every customer notification held behind a named human approval | **100/100** seeded cases (50 without approval, 50 with named approval) matched the expected gate decision; 0 false sends, 0 false holds | Yes |
+
 ## Building and running
 
 Backend (Python 3.12, a virtualenv per repo):
@@ -275,9 +368,10 @@ Backend (Python 3.12, a virtualenv per repo):
 cd backend
 python -m venv venv
 venv\Scripts\pip install -r requirements.txt
-venv\Scripts\python -m pytest -v                             # 38 tests (37 passed, 1 skipped), <1s
+venv\Scripts\python -m pytest -v                             # full suite incl. intake: 557 passed, 1 skipped
 venv\Scripts\python scripts\run_deviation_benchmark.py         # the 40+40-run deviation benchmark
 venv\Scripts\python scripts\run_evidence_gate_check.py          # the after-action refusal/success demo
+venv\Scripts\python scripts\run_intake_benchmark.py              # channel normalization, severity oracle, notification gate
 venv\Scripts\python scripts\init_db.py                            # stand up (and seed) the schema
 venv\Scripts\python -m uvicorn incident_harness.api:app --port 8000   # serves the API on :8000
 ```
@@ -335,3 +429,11 @@ Findings) and that the register's simpler, order-free evidence model never has t
   test in this build**, for the same reason the sibling repo's console tests are not: the console is
   proven against a mocked `fetch` and a real (in-process) FastAPI `TestClient`, not a bound network
   port, consistent with this build's process/port guard.
+- **Intake extension.** The severity matrix and the notification gate are both small, enumerable
+  rule checks (Findings explains why all 3 benchmarks measured clean on the first attempt, unlike
+  the base harness's own deviation benchmark); a real triage function would weigh evidence the
+  written matrix here does not model (customer tier, regulatory jurisdiction, prior incident
+  history for the same account). `send_notification` checks that an approver is named, not that
+  the name is a real, authorized person in any identity or role system, which this build does not
+  have access to. No console UI was added for the intake endpoints; they are exercised by
+  `tests/test_intake_api.py` against a real FastAPI `TestClient`, not a browser.
