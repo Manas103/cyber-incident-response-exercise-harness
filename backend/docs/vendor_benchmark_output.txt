@@ -1,0 +1,16 @@
+--- claim: 4 vendor alert feeds normalized onto one incident record ---
+alerts ingested: 120 (25 chains x 4 feeds + 20 standalone)
+chains correctly folded to 1 incident each: 25 / 25
+false groupings among standalone alerts: 0 / 20
+primary vs. reference correlation engine: 45 vs 45 incidents, exact agreement = True
+
+--- claim: severity classified against a written matrix matching an independent oracle on 500 of 500 cases ---
+seeded cases: 500
+primary matched independent reference oracle: 500 / 500
+
+--- claim: containment runs only behind a named approver; 100 of 100 gate decisions correct; 0 unapproved actions; every action reversible ---
+gate decisions: 100 (50 unapproved + 50 approved)
+correct gate decision: 100 / 100
+unapproved actions executed: 0 / 50
+executed (approved) actions: 50 / 50
+executed actions successfully reverted to normal: 50 / 50

@@ -11,6 +11,7 @@ from .db import init_schema, make_engine, make_session_factory
 from .detector import ActionRecord, detect_deviations
 from .fixtures import RunRecordDef
 from .intake.api import register_intake_routes
+from .vendor.api import register_vendor_routes
 from .models import EvidenceArtifactRow, InjectRow, PlaybookStepRow, ResponderActionRow, RunRow, ScenarioRow
 from .schemas import (
     ActionOut,
@@ -266,6 +267,7 @@ def create_app(database_url: str | None = None, seed: bool = True) -> FastAPI:
     fastapi_app.state.engine = engine
     _register_routes(fastapi_app, session_factory)
     register_intake_routes(fastapi_app, session_factory)
+    register_vendor_routes(fastapi_app, session_factory)
     return fastapi_app
 
 

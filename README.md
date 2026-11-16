@@ -11,7 +11,12 @@ was measured on this machine by running the commands shown, not written backward
 match a target. Extended (Aug. 2026) with `incident_harness/intake/`: 3 incoming report channels
 (customer report, internal alert, researcher disclosure) normalized onto one incident record,
 severity classified against a written matrix checked by an independent reference oracle, and every
-customer notification held behind a named human approval.
+customer notification held behind a named human approval. Extended again (Sep. 2026) with
+`incident_harness/vendor/`: 4 vendor-shaped alert feeds (endpoint detection, email gateway, identity
+provider, managed-detection escalation) correlated by shared entity and time onto one incident
+record, severity and time-to-detect/time-to-contain scored the same way, and executable containment
+(host isolation, session revoke, token reset) that runs only behind a named approver and that always
+records enough state to be undone exactly.
 
 ## Why this exists
 
@@ -82,6 +87,35 @@ specific artifact proving it was.
   refuses an empty or blank `approved_by`; it does not verify the approver against a real
   identity or role store, which a production version would need and this build does not model
   (see Limitations).
+- **Machine and toolchain (this extension).** Windows 11 Home 10.0.26200, Python 3.12.10,
+  pytest 9.1.1.
+
+**Vendor extension (`incident_harness/vendor/`), honest framing:**
+- **The 4 feeds carry genuinely different entity shapes, not a cosmetic relabeling of the 3
+  intake channels.** `feeds.py`'s raw dataclasses mirror what each vendor type can actually
+  see: an EDR console sees a host, never a user principal; an email gateway sees a recipient
+  user, never a hostname; an identity provider sees a user and a source IP; only a managed-
+  detection-and-response vendor's own escalation, which already triaged across tools before
+  naming it to the client, carries both. `correlate_vendor_alerts` has to reconcile that
+  mismatch to fold 4 differently-shaped feeds into one incident, which is a different problem
+  from intake's 3-channel normalization (same 3 facts, 3 different envelopes).
+- **"Entity-and-time correlation" is a literal graph, not a shared label a fixture generator
+  attached.** Two alerts are linked when they share at least one `(entity_type, value)` pair
+  and land within a 2-hour window of each other; one incident is one connected component.
+  `correlation.py` builds the graph and traverses it by BFS; `reference_correlation.py` is an
+  independently coded disjoint-set (union-find) oracle over the same pairwise test, with its
+  own, differently-shaped aggregation step, sharing no helper function with the primary.
+- **Containment is state change, not a message hold.** `containment.py` generalizes
+  `intake/notification.py`'s named-approval gate from "hold a message" to "flip a target
+  entity's state", over an in-memory `EntityStateStore` standing in for a live EDR/IdP/SOAR
+  platform the same way `device-telemetry-policy-middleware`'s policy plane stands in for a
+  live vendor API. Every executed action's prior state is recorded, so `undo_containment` can
+  restore it exactly; this build verifies that empirically (every executed action in the
+  100-case gate benchmark is actually reverted, not assumed reversible from the code's shape).
+- **Severity reuses the same written matrix, not a second one.** The claim is the same 3-input
+  matrix (`intake/severity.py`) scored against a different population (vendor-incident-derived
+  inputs instead of report-channel-derived ones); writing a second matrix for the same written
+  rules would be duplication the design-first-then-reuse policy explicitly argues against.
 - **Machine and toolchain (this extension).** Windows 11 Home 10.0.26200, Python 3.12.10,
   pytest 9.1.1.
 
@@ -166,6 +200,41 @@ tests/
   test_intake_api.py                 Real FastAPI TestClient, all 5 routes.
 ```
 
+### Vendor extension (`incident_harness/vendor/`)
+
+```
+incident_harness/vendor/
+  feeds.py                4 raw feed shapes (EndpointDetectionRaw, EmailGatewayRaw,
+                         IdentityProviderRaw, ManagedDetectionEscalationRaw) and
+                         normalize_*() onto one shared VendorAlert.
+  correlation.py            Primary entity-and-time correlation: adjacency-list graph,
+                         BFS connected components, VendorIncident aggregation.
+  reference_correlation.py   Independent union-find oracle, diffed exactly against
+                         correlation.py; its own aggregation step, no shared helpers.
+  containment.py             ACTION_HOST_ISOLATION/SESSION_REVOKE/TOKEN_RESET,
+                         EntityStateStore, apply_containment(), undo_containment().
+  playbook.py                 The written detect/contain playbook definition.
+  timing.py                    compute_vendor_timing() against playbook.py.
+  models.py                     VendorAlertRow, AnalystAckRow, ContainmentActionRow
+                         (shares the main Base; incidents are recomputed from
+                         VendorAlertRow on every read, never stored).
+  schemas.py                     Pydantic request/response shapes for the 8 new routes.
+  api.py                           register_vendor_routes(): 4 feed-ingest endpoints,
+                         a derived incident listing, an ack endpoint, and the
+                         containment create/undo endpoints.
+  fixtures.py                       Seeded generators for all 3 benchmarks below.
+scripts/
+  run_vendor_benchmark.py              All 3 benchmarks in one run.
+tests/
+  test_vendor_feeds.py                   Each feed normalizes to the right entity shape.
+  test_vendor_correlation.py               25/25 chains fold to 1 incident, 0/20 false groupings.
+  test_vendor_correlation_oracle_diff.py     Primary vs. reference, exact agreement.
+  test_vendor_severity.py                      500-case oracle diff over vendor-derived inputs.
+  test_vendor_timing.py                          Time-to-detect/contain against playbook.py.
+  test_vendor_containment_gate.py                  100-case gate + full reversibility check.
+  test_vendor_api.py                                 Real FastAPI TestClient, all 8 routes.
+```
+
 ### Design deep-dives
 
 **A playbook step is scenario-level, not inject-level, on purpose.** 30 injects share only 24 named
@@ -196,6 +265,31 @@ includes a structural guard that the reference file never imports `detect_deviat
 time a run is requested, exactly as `ai-governance-audit-readiness-register` never persists a
 verdict, for the same reason: a stored deviation list would go stale the moment an action is
 corrected.
+
+**Vendor incidents are derived the same way, for the same reason, and that forced a real design
+decision about containment state.** `list_vendor_incidents` in `vendor/api.py` reruns
+`correlate_vendor_alerts` over every stored `VendorAlertRow` on every GET; nothing about incident
+membership is ever written down as a fact of its own. Containment state follows the same
+"derive, don't store" rule: rather than a mutable `current_state` column that could drift from the
+`ContainmentActionRow` audit log that is supposed to explain it, an entity's current state is always
+recomputed as "the most recent executed, not-undone action's resulting state, or normal if there is
+none" (`_current_state_of_entity`). The in-process `EntityStateStore` from `containment.py`'s unit
+tests is reconstructed fresh for every single API call from that same derived state, not kept alive
+across requests, so the pure functions `apply_containment`/`undo_containment` stay identical whether
+they are called from a unit test or from a FastAPI route.
+
+**The first real integration bug here was a missing clock, not a logic error.** `apply_containment`
+and `undo_containment` are pure and timestamp-free by design (see `containment.py`); but
+`time_to_contain_minutes` has to be measured against *something*, and the API's first draft
+computed it as `incident.start_minutes` itself whenever any containment action had executed,
+`first_contain.id and incident.start_minutes if ... else None`, which is a truthy-`id` short-circuit
+that always evaluated to the incident's own start time, making every time-to-contain measurement
+exactly 0 regardless of when containment actually happened. The fix was not in the timing math, it
+was that `ContainmentRequest`/`ContainmentActionRow` had no field at all for "when, on the
+simulated-exercise clock, did this action happen", only a wall-clock `created_at`; `action_minutes`
+was added to the request, the row, and the schema, and `compute_vendor_timing` was pointed at it.
+`tests/test_vendor_api.py::test_ack_and_executed_containment_produce_timing` asserts the actual
+minute value (`30`, not `0`) specifically so this class of bug cannot silently return.
 
 ## Validation
 
@@ -235,6 +329,16 @@ corrected.
 10. **The intake benchmark** (`scripts/run_intake_benchmark.py`, `docs/intake_benchmark_output.txt`):
     the 100-case channel-normalization equivalence check, the 500-case severity-oracle diff, and the
     100-case notification-gate check, the number-producing run behind the three new headline claims.
+11. **Vendor unit, oracle-diff and API tests** (`test_vendor_feeds.py`, `test_vendor_correlation.py`,
+    `test_vendor_correlation_oracle_diff.py`, `test_vendor_severity.py`, `test_vendor_timing.py`,
+    `test_vendor_containment_gate.py`, `test_vendor_api.py`): per-feed entity-shape checks, the
+    25-chain/20-standalone correlation corpus diffed exactly against the independent union-find
+    oracle, a 500-case severity-oracle diff over vendor-derived inputs, timing against the written
+    playbook, the 100-case containment gate plus a full reversibility check, and all 8 new routes
+    against a real FastAPI `TestClient`.
+12. **The vendor benchmark** (`scripts/run_vendor_benchmark.py`, `docs/vendor_benchmark_output.txt`):
+    the correlation corpus, the 500-case severity-oracle diff, and the 100-case containment gate with
+    its reversibility check, the number-producing run behind the project's headline claims.
 
 ### `pytest -v` (38 tests, 37 passed, 1 skipped)
 
@@ -281,6 +385,16 @@ cases plus all 500 seeded cases diffed against the independent reference oracle
 all 100 seeded cases), and all 5 new routes against a real FastAPI `TestClient`. The 1 skip
 is the pre-existing PostgreSQL-fallback probe, unrelated to this extension.
 
+### Vendor extension: `pytest -q` (full backend suite, 1076 passed, 1 skipped)
+
+Running the whole backend suite with the vendor tests added (`docs/test_output.txt`) covers
+per-feed entity-shape normalization, the 25-chain/20-standalone correlation corpus diffed
+exactly against the independent union-find oracle, 500 seeded severity cases over vendor-derived
+inputs diffed against the same reference oracle the intake extension uses, the written-playbook
+timing calculation, the 100-case containment approval gate plus a full reversibility check, and
+all 8 new routes against a real FastAPI `TestClient`. The 1 skip is the same pre-existing
+PostgreSQL-fallback probe.
+
 ### Console: `npm run test` (15 tests, Vitest + Testing Library)
 
 `api.test.ts` (mocked `fetch`, request shapes for all 5 API calls, error propagation on non-2xx),
@@ -326,6 +440,17 @@ fixture-generator bug to hide in, which is exactly the dimension that produced t
 real bug. Writing "measured clean" without this context would read as a suspiciously easy win; the
 context is why it is not one.
 
+**Vendor extension: the correlation and severity benchmarks measured clean on the first real run;
+the containment-timing integration bug above (see Design deep-dives) is this extension's real find.**
+25/25 chains, 500/500 severity cases and 100/100 gate decisions all passed without a second attempt,
+for the same reason the intake benchmarks did: each is a deterministic function over a small,
+enumerable input space with the sequencing risk isolated to the corpus generator, and the 25-chain
+corpus was built deliberately (distinct hosts and users per chain, timestamps spread 500 minutes
+apart) to avoid the base harness's own foreign-scenario-wraparound class of bug. The genuine
+engineering miss was one layer up, at the API integration boundary where a derived timing field met
+a request schema that had never been asked to carry a simulated-clock timestamp; see Design
+deep-dives for the full symptom-to-fix account.
+
 ## Measured results
 
 Machine: 8 physical / 16 logical cores, Windows 11 Home 10.0.26200, Python 3.12.10, Node.js
@@ -360,6 +485,18 @@ Machine: Windows 11 Home 10.0.26200, Python 3.12.10. Full raw output: `backend/d
 | Severity classified against a written matrix checked by an independent oracle | **500/500** seeded cases matched the independent reference oracle, on the first attempt | Yes |
 | Every customer notification held behind a named human approval | **100/100** seeded cases (50 without approval, 50 with named approval) matched the expected gate decision; 0 false sends, 0 false holds | Yes |
 
+### Vendor extension
+
+Machine: Windows 11 Home 10.0.26200, Python 3.12.10. Full raw output: `backend/docs/vendor_benchmark_output.txt`.
+
+| Claim | Measured | Met |
+|---|---|---|
+| 4 vendor alert feeds (endpoint detection, email gateway, identity provider, managed-detection escalation) normalized onto one incident record | 120 seeded alerts (25 chains x 4 feeds + 20 standalone); **25/25** chains correctly folded to 1 incident each, **0/20** false groupings; primary vs. independent reference correlation engine exact agreement (45/45 incidents) | Yes |
+| Severity classified against a written matrix matching an independently coded oracle on 500 of 500 cases | **500/500** seeded vendor-derived cases matched the independent reference oracle, on the first attempt | Yes |
+| Time-to-detect and time-to-contain scored against a written playbook | `compute_vendor_timing` measured against `playbook.py`'s written detect/contain steps; `None` (not zero) when no matching action exists, confirmed by `test_vendor_timing.py` | Yes |
+| Containment ran only behind a named approver; 100 of 100 gate decisions correct; 0 unapproved actions | **100/100** gate decisions correct (50 unapproved refused, 50 approved executed); **0** unapproved actions executed | Yes |
+| Every action reversible | **50/50** executed actions successfully reverted to their pre-containment state (`undo_containment`, verified empirically, not assumed) | Yes |
+
 ## Building and running
 
 Backend (Python 3.12, a virtualenv per repo):
@@ -368,10 +505,11 @@ Backend (Python 3.12, a virtualenv per repo):
 cd backend
 python -m venv venv
 venv\Scripts\pip install -r requirements.txt
-venv\Scripts\python -m pytest -v                             # full suite incl. intake: 557 passed, 1 skipped
+venv\Scripts\python -m pytest -v                             # full suite incl. intake+vendor: 1076 passed, 1 skipped
 venv\Scripts\python scripts\run_deviation_benchmark.py         # the 40+40-run deviation benchmark
 venv\Scripts\python scripts\run_evidence_gate_check.py          # the after-action refusal/success demo
 venv\Scripts\python scripts\run_intake_benchmark.py              # channel normalization, severity oracle, notification gate
+venv\Scripts\python scripts\run_vendor_benchmark.py               # correlation corpus, severity oracle, containment gate
 venv\Scripts\python scripts\init_db.py                            # stand up (and seed) the schema
 venv\Scripts\python -m uvicorn incident_harness.api:app --port 8000   # serves the API on :8000
 ```
@@ -437,3 +575,13 @@ Findings) and that the register's simpler, order-free evidence model never has t
   the name is a real, authorized person in any identity or role system, which this build does not
   have access to. No console UI was added for the intake endpoints; they are exercised by
   `tests/test_intake_api.py` against a real FastAPI `TestClient`, not a browser.
+- **Vendor extension.** `EntityStateStore` is an in-memory stand-in for a live EDR/IdP/SOAR
+  platform (see `containment.py`'s module docstring); nothing here calls a real vendor API, and
+  `apply_containment`/`undo_containment` only decide and record what should happen, not execute it
+  against a live system. The containment approval gate checks that an approver is *named*, the same
+  limitation `send_notification` discloses above, not that the name is authorized in any real
+  identity system. The 2-hour correlation window (`CORRELATION_WINDOW_MINUTES`) is a documented,
+  inspectable constant tuned for this corpus's own narrative pacing, not validated against a labeled
+  real-world alert-correlation dataset, since none exists for this synthetic domain. No console UI
+  was added for the vendor endpoints either, for the same reason as the intake extension; they are
+  exercised by `tests/test_vendor_api.py` against a real FastAPI `TestClient`.
